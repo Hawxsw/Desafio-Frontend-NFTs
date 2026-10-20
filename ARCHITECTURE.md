@@ -76,7 +76,7 @@ Envelope de todos os eventos:
 | `nft.updated` | todos os sockets | Atualiza detalhe, listas, destaque e favoritos no cache, sem regredir de versão. Se o NFT está no carrinho, invalida a cotação e anuncia a mudança (`role="alert"`) |
 | `order.updated` | só os sockets autenticados como o dono do pedido | Atualiza o pedido no cache. Se confirmado, invalida carrinho e catálogo; anuncia confirmação ou recusa |
 
-**Origem dos eventos.** Toda mudança no banco simulado que afeta um NFT ou pedido publica o evento correspondente: confirmação de pedido (baixa de disponibilidade), cenários de preço/esgotamento e `__kurioMocks.updateEdition`. REST e Socket.IO leem o mesmo banco.
+**Origem dos eventos.** Toda mudança no banco simulado que afeta um NFT ou pedido publica o evento correspondente: confirmação de pedido (baixa de disponibilidade), cenários de preço/esgotamento e `mockControls.updateEdition` (usado nos testes). REST e Socket.IO leem o mesmo banco.
 
 **Transporte e limitações no ambiente de mocks.**
 - O MSW intercepta o `WebSocket` dentro da própria página. O `@mswjs/socket.io-binding` codifica e decodifica os pacotes Engine.IO/Socket.IO e faz o handshake.
@@ -143,7 +143,7 @@ O estado do catálogo (busca, aba, categorias, redes, faixa de preço, ordenaç�
 - Link "Pular para o conteúdo", foco visível e `main` focável.
 - Diálogos e drawers (login, cadastro, filtros, revisão, recibo) usam Radix: prendem o foco, fecham com Escape e devolvem o foco ao gatilho.
 - Campos com `label`, `aria-invalid` e `aria-describedby` para os erros. O primeiro campo inválido do checkout recebe foco.
-- Mutations e eventos em tempo real são anunciados em regiões `role="status"` e `role="alert"` (`LiveAnnouncer`). Também aparece um aviso visual temporário que não bloqueia cliques.
+- Mutations e eventos em tempo real são anunciados em regiões `role="status"` e `role="alert"` (`LiveAnnouncer`).
 - Estados como favorito e edição esgotada são expostos por `aria-pressed`, `aria-checked` e texto, além da cor.
 - Skeletons têm `aria-busy` e respeitam `prefers-reduced-motion`.
 
@@ -167,6 +167,8 @@ Pontos conhecidos:
 - **Skeletons**: mantêm o efeito pulsante e as medidas originais do projeto, em vez de *shimmer*. O carrinho e o checkout mantêm o texto de carregamento original.
 
 ## Performance
+
+- **SEO 83 (meta 90)**: o `index.html` não tem `<meta name="description">` e não há `robots.txt`; a rota cai no `index.html` da SPA e o Lighthouse o considera inválido.
 
 - **LCP mobile (~3,2 s)**: a imagem do hero/NFT é PNG de ~2 MB (assets originais do Figma). Além disso, o MSW precisa registrar o service worker antes do primeiro render, porque a aplicação só é importada depois dos mocks. A conversão das imagens para WebP/AVIF redimensionado reduziria o LCP, mas é uma substituição de asset que não foi feita.
 - **CLS 0,2 no detalhe desktop**: o skeleton original do detalhe é mais baixo que o conteúdo final, e o rodapé desce quando os dados chegam. Ajustar as medidas do skeleton remove o deslocamento; ficou como está para preservar o componente original.
