@@ -1,14 +1,20 @@
 import { Image } from 'lucide-react'
-import { useId, useState, type FormEvent } from 'react'
+import { useId, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { EnsSuffixSelect, FormField, PasswordInput } from '@/components/shared/form-field'
 import { CONTROL_CLASS, fieldA11y } from '@/utils/form.helper'
-import { useChangePasswordMutation, useSessionQuery, useUpdateProfileMutation } from '@/hooks/useAuth'
+import {
+  useChangePasswordMutation,
+  useSessionQuery,
+  useUpdateAvatarMutation,
+  useUpdateProfileMutation,
+} from '@/hooks/useAuth'
 import { useSaveWalletMutation, useWalletsQuery } from '@/hooks/useWallets'
 import type { User } from '@/types/user'
 import type { Wallet } from '@/types/wallet'
 import { getErrorMessage, getFieldErrors } from '@/utils/api-error.helper'
 import { MIN_PASSWORD_LENGTH } from '@/utils/validation.helper'
 import { stripEnsSuffix, withEnsSuffix } from '@/utils/ens.helper'
+import { readAvatarFile } from '@/utils/avatar.helper'
 import { AccountLoadError, AccountLoading } from './components/account-status'
 
 export function ProfileDetails() {
@@ -40,6 +46,9 @@ function ProfileForm({ user, primaryWallet }: ProfileFormProps) {
   const updateProfile = useUpdateProfileMutation()
   const changePassword = useChangePasswordMutation()
   const saveWallet = useSaveWalletMutation()
+  const updateAvatar = useUpdateAvatarMutation()
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [avatarError, setAvatarError] = useState<string>()
 
   const [name, setName] = useState(user.name)
   const [username, setUsername] = useState(user.username)
@@ -62,6 +71,26 @@ function ProfileForm({ user, primaryWallet }: ProfileFormProps) {
   const failed = [updateProfile, changePassword, saveWallet].find(
     (mutation) => mutation.isError && Object.keys(getFieldErrors(mutation.error)).length === 0,
   )
+
+  async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setAvatarError(undefined)
+    try {
+      const dataUrl = await readAvatarFile(file)
+      updateAvatar.mutate(dataUrl, {
+        onError: (error) => setAvatarError(getFieldErrors(error).avatar ?? getErrorMessage(error)),
+      })
+    } catch (error) {
+      setAvatarError(error instanceof Error ? error.message : 'Não foi possível ler a imagem.')
+    }
+  }
+
+  function handleAvatarRemove() {
+    setAvatarError(undefined)
+    updateAvatar.mutate(null, { onError: (error) => setAvatarError(getErrorMessage(error)) })
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -161,23 +190,57 @@ function ProfileForm({ user, primaryWallet }: ProfileFormProps) {
           />
         </FormField>
         <div className="flex flex-col">
-          <span className="flex h-[29px] items-center text-body leading-[15px]">Avatar</span>
+          <span id={fieldId('avatar-label')} className="flex h-[29px] items-center text-body leading-[15px]">
+            Avatar
+          </span>
           <div className="flex h-10 items-center gap-5">
-            <span aria-hidden className="flex size-[50px] items-center justify-center rounded-full bg-surface-raised text-primary">
-              <Image className="size-[18px]" strokeWidth={1.5} />
-            </span>
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt="Seu avatar"
+                width={50}
+                height={50}
+                className="size-[50px] rounded-full object-cover"
+              />
+            ) : (
+              <span aria-hidden className="flex size-[50px] items-center justify-center rounded-full bg-surface-raised text-primary">
+                <Image className="size-[18px]" strokeWidth={1.5} />
+              </span>
+            )}
+            <input
+              ref={avatarInputRef}
+              id={fieldId('avatar')}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              aria-labelledby={fieldId('avatar-label')}
+              onChange={handleAvatarChange}
+              {...fieldA11y(fieldId('avatar'), avatarError)}
+              className="sr-only"
+              tabIndex={-1}
+            />
             <button
               type="button"
-              disabled
-              title="Disponível em breve"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={updateAvatar.isPending}
+              aria-describedby={avatarError ? `${fieldId('avatar')}-error` : undefined}
               className="h-10 rounded-[3px] bg-primary px-5 text-body font-bold text-ink disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Alterar
+              {updateAvatar.isPending ? 'Enviando...' : 'Alterar'}
             </button>
-            <button type="button" disabled title="Disponível em breve" className="text-sm disabled:cursor-not-allowed">
+            <button
+              type="button"
+              onClick={handleAvatarRemove}
+              disabled={!user.avatarUrl || updateAvatar.isPending}
+              className="text-sm disabled:cursor-not-allowed"
+            >
               Remover
             </button>
           </div>
+          {avatarError && (
+            <p id={`${fieldId('avatar')}-error`} role="alert" className="mt-1 text-xs leading-4 text-destructive">
+              {avatarError}
+            </p>
+          )}
         </div>
       </div>
 

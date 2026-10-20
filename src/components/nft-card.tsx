@@ -13,6 +13,7 @@ interface NftCardProps {
 export function NftCard({ nft, isFavorite = false, onToggleFavorite }: NftCardProps) {
   const edition = nft.editions[0]
   const isRare = nft.editions.some((item) => item.supply === 1)
+  const soldOut = nft.editions.every((item) => item.available === 0)
 
   return (
     <article className="relative flex flex-col gap-3">
@@ -28,6 +29,11 @@ export function NftCard({ nft, isFavorite = false, onToggleFavorite }: NftCardPr
         {isRare && (
           <span className="pointer-events-none absolute top-3 left-0 bg-primary px-2 py-1.5 text-xs leading-4 font-bold text-primary-foreground uppercase md:hidden">
             Raro
+          </span>
+        )}
+        {soldOut && (
+          <span className="pointer-events-none absolute right-0 bottom-3 bg-ink/85 px-2 py-1.5 text-xs leading-4 font-bold text-text-primary uppercase md:bottom-2">
+            Esgotado
           </span>
         )}
         {onToggleFavorite && (

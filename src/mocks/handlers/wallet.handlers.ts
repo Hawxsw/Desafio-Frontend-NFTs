@@ -3,8 +3,9 @@ import { requireUser } from '@/mocks/auth'
 import { getDb, updateDb } from '@/mocks/db'
 import { apiError } from '@/mocks/errors'
 import { simulateNetwork } from '@/mocks/network'
+import { getScenario } from '@/mocks/scenarios'
 import type { Network } from '@/types/common'
-import type { Wallet, WalletInput, WalletKind, WalletProvider } from '@/types/wallet'
+import type { Wallet, WalletConnection, WalletInput, WalletKind, WalletProvider } from '@/types/wallet'
 import { isValidWalletAddress } from '@/utils/validation.helper'
 
 const NETWORKS: Network[] = ['ethereum', 'polygon', 'solana']
@@ -98,5 +99,33 @@ export const walletHandlers = [
       applyInput(wallet, input)
       return HttpResponse.json(wallet)
     })
+  }),
+
+  http.post<{ id: string }, { network: Network }>('/api/wallets/:id/connect', async ({ params, request }) => {
+    const failure = await simulateNetwork()
+    if (failure) return failure
+
+    const user = requireUser(request)
+    if (user instanceof Response) return user
+
+    const { network } = await request.json()
+    const wallet = getDb().wallets.find((item) => item.id === params.id && item.userId === user.id)
+    if (!wallet) return apiError(404, 'NOT_FOUND', 'Carteira não encontrada.')
+    if (!wallet.networks.includes(network)) {
+      return apiError(422, 'VALIDATION_ERROR', 'Esta carteira não opera na rede escolhida.', {
+        fieldErrors: { network: 'Esta carteira não opera na rede escolhida.' },
+      })
+    }
+    if (getScenario() === 'wallet-rejected') {
+      return apiError(409, 'WALLET_REJECTED', 'A conexão foi recusada na carteira. Tente novamente.')
+    }
+
+    const connection: WalletConnection = {
+      walletId: wallet.id,
+      address: wallet.address,
+      network,
+      connectedAt: new Date().toISOString(),
+    }
+    return HttpResponse.json(connection)
   }),
 ]

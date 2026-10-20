@@ -1,6 +1,7 @@
 import type { AxiosInstance } from 'axios'
 import { api } from '@/services/api/api'
-import type { Wallet, WalletInput } from '@/types/wallet'
+import type { Network } from '@/types/common'
+import type { Wallet, WalletConnection, WalletInput } from '@/types/wallet'
 
 export class WalletService {
   private readonly api: AxiosInstance
@@ -19,6 +20,10 @@ export class WalletService {
 
   update(id: string, input: WalletInput) {
     return this.api.patch<Wallet>(`/wallets/${id}`, input)
+  }
+
+  connect(id: string, network: Network) {
+    return this.api.post<WalletConnection>(`/wallets/${id}/connect`, { network })
   }
 }
 

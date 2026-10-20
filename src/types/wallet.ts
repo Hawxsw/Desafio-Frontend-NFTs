@@ -25,3 +25,10 @@ export interface WalletInput {
   ensName: string | null
   networks: Network[]
 }
+
+export interface WalletConnection {
+  walletId: string
+  address: string
+  network: Network
+  connectedAt: string
+}

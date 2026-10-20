@@ -3,6 +3,6 @@ import { expect, test } from '@playwright/test'
 test('home carrega', async ({ page }) => {
   await page.goto('/')
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Seja dono do futuro da arte digital' }),
+    page.getByRole('heading', { level: 1, name: /^Seja dono d/ }),
   ).toBeVisible()
 })

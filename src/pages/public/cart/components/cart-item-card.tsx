@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { Trash2 } from 'lucide-react'
 import { QuantityStepper } from '@/components/shared/quantity-stepper'
 import type { QuoteLine } from '@/types/quote'
 import { formatEth } from '@/utils/money.helper'
@@ -6,9 +7,10 @@ import { formatEth } from '@/utils/money.helper'
 interface CartItemCardProps {
   line: QuoteLine
   onQuantityChange: (quantity: number) => void
+  onRemove: () => void
 }
 
-export function CartItemCard({ line, onQuantityChange }: CartItemCardProps) {
+export function CartItemCard({ line, onQuantityChange, onRemove }: CartItemCardProps) {
   return (
     <li className="relative flex h-[100px] gap-2 rounded-[14px] bg-surface-card shadow-[0_6px_20px_rgba(10,6,4,0.45)]">
       <img src={line.image} alt="" width={100} height={100} className="size-[100px] rounded-[14px] object-cover" />
@@ -29,6 +31,14 @@ export function CartItemCard({ line, onQuantityChange }: CartItemCardProps) {
         size="circle"
         className="absolute top-[38px] right-4"
       />
+      <button
+        type="button"
+        aria-label={`Remover ${line.name}`}
+        onClick={onRemove}
+        className="absolute top-1.5 right-1.5 flex size-7 items-center justify-center text-muted-foreground transition-colors hover:text-text-accent"
+      >
+        <Trash2 aria-hidden strokeWidth={1.5} className="size-4" />
+      </button>
     </li>
   )
 }

@@ -45,19 +45,24 @@ export const authHandlers = [
     const fieldErrors: Record<string, string> = {}
     if (!isValidUsername(normalizedUsername)) {
       fieldErrors.username = 'Use de 3 a 20 letras, números, ponto ou sublinhado.'
-    } else if (db.users.some((item) => item.username === normalizedUsername)) {
-      fieldErrors.username = 'Este nome de usuário já está em uso.'
     }
     if (!isValidEmail(normalizedEmail)) {
       fieldErrors.email = 'Informe um e-mail válido.'
-    } else if (db.users.some((item) => item.email === normalizedEmail)) {
-      fieldErrors.email = 'Já existe uma conta com este e-mail.'
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
       fieldErrors.password = `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`
     }
     if (Object.keys(fieldErrors).length > 0) {
       return apiError(422, 'VALIDATION_ERROR', 'Verifique os campos destacados.', { fieldErrors })
+    }
+
+    const conflicts: Record<string, string> = {}
+    if (db.users.some((item) => item.username === normalizedUsername)) {
+      conflicts.username = 'Este nome de usuário já está em uso.'
+    }
+    if (db.users.some((item) => item.email === normalizedEmail)) conflicts.email = 'Já existe uma conta com este e-mail.'
+    if (Object.keys(conflicts).length > 0) {
+      return apiError(409, 'CONFLICT', 'Já existe uma conta com estes dados.', { fieldErrors: conflicts })
     }
 
     const now = new Date().toISOString()

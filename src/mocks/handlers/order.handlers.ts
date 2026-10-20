@@ -1,25 +1,26 @@
 import { http, HttpResponse } from 'msw'
 import { requireUser } from '@/mocks/auth'
-import { updateDb } from '@/mocks/db'
+import { applyDisruption, buildQuote, getCart, userCartKey } from '@/mocks/cart'
+import { getDb, updateDb } from '@/mocks/db'
+import type { StoredOrder } from '@/mocks/db/schema'
 import { apiError } from '@/mocks/errors'
 import { hang, simulateNetwork } from '@/mocks/network'
+import { scheduleSettlement, settleDueOrders, SETTLE_DELAY_MS, toPublicOrder } from '@/mocks/orders'
 import { getScenario } from '@/mocks/scenarios'
-import type { Network } from '@/types/common'
-import type { CreateOrderInput, Order } from '@/types/order'
-import { compareEth } from '@/utils/money.helper'
-import { GUEST_OWNER } from './cart.handlers'
+import type { CreateOrderInput } from '@/types/order'
+import { isValidEmail } from '@/utils/validation.helper'
 
 const IDEMPOTENCY_HEADER = 'Idempotency-Key'
 
-const EXPLORERS: Record<Network, string> = {
-  ethereum: 'https://etherscan.io/tx/',
-  polygon: 'https://polygonscan.com/tx/',
-  solana: 'https://solscan.io/tx/',
+function outdatedQuote(message: string) {
+  return apiError(409, 'QUOTE_OUTDATED', message)
 }
 
-function randomTxHash() {
-  const bytes = crypto.getRandomValues(new Uint8Array(32))
-  return `0x${Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')}`
+function validateBuyer(input: CreateOrderInput) {
+  const fieldErrors: Record<string, string> = {}
+  if (!input.buyer?.name?.trim()) fieldErrors.name = 'Informe seu nome de exibição.'
+  if (!isValidEmail(input.buyer?.email?.trim() ?? '')) fieldErrors.email = 'Informe um e-mail válido.'
+  return fieldErrors
 }
 
 export const orderHandlers = [
@@ -34,22 +35,46 @@ export const orderHandlers = [
     if (!idempotencyKey) return apiError(422, 'VALIDATION_ERROR', 'Cabeçalho Idempotency-Key é obrigatório.')
 
     const input = await request.json()
-    const fingerprint = JSON.stringify([user.id, input.quoteId, input.walletId, input.network])
-    const scenario = getScenario()
+    const fingerprint = JSON.stringify([user.id, input.quoteId, input.walletId, input.network, input.buyer])
+    const ownerKey = userCartKey(user.id)
 
-    const result = updateDb((db): Response | Order => {
-      const previous = db.idempotency[idempotencyKey]
-      if (previous) {
-        if (previous.fingerprint !== fingerprint) {
-          return apiError(409, 'IDEMPOTENCY_CONFLICT', 'Esta chave já foi usada em outro pedido.')
-        }
-        return db.orders[previous.orderId]
+    const previous = getDb().idempotency[idempotencyKey]
+    if (previous) {
+      if (previous.fingerprint !== fingerprint) {
+        return apiError(409, 'IDEMPOTENCY_CONFLICT', 'Esta chave já foi usada em outro pedido.')
       }
+      settleDueOrders()
+      return HttpResponse.json(toPublicOrder(getDb().orders[previous.orderId]))
+    }
 
+    const fieldErrors = validateBuyer(input)
+    if (Object.keys(fieldErrors).length > 0) {
+      return apiError(422, 'VALIDATION_ERROR', 'Verifique os campos destacados.', { fieldErrors })
+    }
+
+    if (applyDisruption(ownerKey)) {
+      return outdatedQuote('O preço ou a disponibilidade de um item mudou. Revise e confirme novamente.')
+    }
+
+    const result = updateDb((db): Response | StoredOrder => {
       const quote = db.quotes[input.quoteId]
-      if (!quote || quote.lines.length === 0) return apiError(404, 'NOT_FOUND', 'Cotação não encontrada.')
-      if (quote.expiresAt < new Date().toISOString()) {
-        return apiError(409, 'CONFLICT', 'A cotação expirou. Revise o carrinho e tente novamente.')
+      if (!quote || quote.ownerKey !== ownerKey) return outdatedQuote('A cotação não é mais válida. Revise o pedido.')
+      if (quote.expiresAt < new Date().toISOString()) return outdatedQuote('A cotação expirou. Revise o pedido.')
+      if (quote.lines.length === 0) return apiError(422, 'VALIDATION_ERROR', 'Seu carrinho está vazio.')
+
+      const current = buildQuote(db, getCart(db, ownerKey))
+      const sameLines =
+        current.lines.length === quote.lines.length &&
+        current.lines.every((line) =>
+          quote.lines.some(
+            (quoted) =>
+              quoted.editionId === line.editionId &&
+              quoted.quantity === line.quantity &&
+              quoted.unitPrice === line.unitPrice,
+          ),
+        )
+      if (current.issues.length > 0 || !sameLines || current.total !== quote.total) {
+        return outdatedQuote('O preço, a disponibilidade ou o cupom mudou. Revise e confirme novamente.')
       }
 
       const wallet = db.wallets.find((item) => item.id === input.walletId && item.userId === user.id)
@@ -58,41 +83,17 @@ export const orderHandlers = [
         return apiError(422, 'VALIDATION_ERROR', 'Esta carteira não opera na rede escolhida.')
       }
 
-      for (const line of quote.lines) {
-        const edition = db.nfts.find((nft) => nft.id === line.nftId)?.editions.find((item) => item.id === line.editionId)
-        if (!edition) return apiError(404, 'NOT_FOUND', `${line.name} não está mais disponível.`)
-        if (scenario === 'price-changed' || compareEth(edition.price, line.unitPrice) !== 0) {
-          return apiError(409, 'PRICE_CHANGED', `O preço de ${line.name} mudou. Revise o carrinho.`, {
-            details: { nftId: line.nftId, editionId: line.editionId },
-          })
-        }
-        if (scenario === 'sold-out' || edition.available < line.quantity) {
-          return apiError(409, 'AVAILABILITY_CONFLICT', `${line.name} (${line.editionName}) esgotou.`, {
-            details: { nftId: line.nftId, editionId: line.editionId, available: edition.available },
-          })
-        }
-      }
-
-      const declined = scenario === 'payment-declined'
-      const txHash = declined ? null : randomTxHash()
-      const now = new Date().toISOString()
-      const order: Order = {
+      const now = new Date()
+      const order: StoredOrder = {
         id: `ord-${crypto.randomUUID()}`,
         userId: user.id,
+        ownerKey,
         idempotencyKey,
         quoteId: quote.id,
-        status: declined ? 'declined' : 'confirmed',
-        items: quote.lines.map((line) => ({
-          nftId: line.nftId,
-          editionId: line.editionId,
-          name: line.name,
-          editionName: line.editionName,
-          image: line.image,
-          tokenId: line.tokenId,
-          quantity: line.quantity,
-          unitPrice: line.unitPrice,
-          lineTotal: line.lineTotal,
-        })),
+        status: 'pending',
+        outcome: getScenario() === 'payment-declined' ? 'declined' : 'confirmed',
+        settlesAt: new Date(now.getTime() + SETTLE_DELAY_MS).toISOString(),
+        items: quote.lines.map(({ available: _available, ...line }) => line),
         couponCode: quote.couponCode,
         subtotal: quote.subtotal,
         discount: quote.discount,
@@ -102,41 +103,35 @@ export const orderHandlers = [
         walletAddress: wallet.address,
         network: input.network,
         buyer: input.buyer,
-        txHash,
-        explorerUrl: txHash ? `${EXPLORERS[input.network]}${txHash}` : null,
-        declineReason: declined ? 'A carteira recusou a assinatura da transação.' : null,
-        createdAt: now,
-        updatedAt: now,
+        txHash: null,
+        explorerUrl: null,
+        declineReason: null,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
         version: 1,
       }
 
       db.orders[order.id] = order
       db.idempotency[idempotencyKey] = { orderId: order.id, fingerprint }
-
-      if (!declined) {
-        for (const line of quote.lines) {
-          const nft = db.nfts.find((item) => item.id === line.nftId)
-          const edition = nft?.editions.find((item) => item.id === line.editionId)
-          if (nft && edition) {
-            edition.available -= line.quantity
-            nft.version += 1
-          }
-        }
-        delete db.quotes[quote.id]
-        const cart = db.carts[GUEST_OWNER]
-        if (cart) {
-          cart.items = []
-          cart.couponCode = null
-          cart.updatedAt = now
-          cart.version += 1
-        }
-      }
-
       return order
     })
 
     if (result instanceof Response) return result
-    if (scenario === 'order-timeout') await hang()
-    return HttpResponse.json(result, { status: 201 })
+    scheduleSettlement()
+    if (getScenario() === 'order-timeout') await hang()
+    return HttpResponse.json(toPublicOrder(result), { status: 201 })
+  }),
+
+  http.get<{ id: string }>('/api/orders/:id', async ({ params, request }) => {
+    const failure = await simulateNetwork()
+    if (failure) return failure
+
+    const user = requireUser(request)
+    if (user instanceof Response) return user
+
+    settleDueOrders()
+    const order = getDb().orders[params.id]
+    if (!order || order.userId !== user.id) return apiError(404, 'NOT_FOUND', 'Pedido não encontrado.')
+    return HttpResponse.json(toPublicOrder(order))
   }),
 ]

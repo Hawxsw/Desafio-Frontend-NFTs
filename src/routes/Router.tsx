@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from '@tanstack/react-router'
 import { Home } from '@/pages/public/Home'
+import { validateCatalogSearch } from '@/utils/catalog-search.helper'
 import { getSessionToken } from '@/utils/session-token.helper'
 import { RootLayout } from './layouts/RootLayout'
 import { NotFound } from './NotFound'
@@ -12,6 +13,7 @@ const rootRoute = createRootRoute({
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
+  validateSearch: validateCatalogSearch,
   component: Home,
 })
 
@@ -83,6 +85,12 @@ const checkoutRoute = createRoute({
   component: lazyRouteComponent(() => import('@/pages/private/checkout/Checkout'), 'Checkout'),
 })
 
+const orderRoute = createRoute({
+  getParentRoute: () => privateRoute,
+  path: 'pedido/$orderId',
+  component: lazyRouteComponent(() => import('@/pages/private/order/OrderStatus'), 'OrderStatus'),
+})
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   nftDetailRoute,
@@ -93,6 +101,7 @@ const routeTree = rootRoute.addChildren([
     favoritesRoute,
     accountRoute.addChildren([profileRoute, walletsRoute]),
     checkoutRoute,
+    orderRoute,
   ]),
 ])
 

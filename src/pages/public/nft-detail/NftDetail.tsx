@@ -2,6 +2,7 @@ import { useNavigate, useParams } from '@tanstack/react-router'
 import { isAxiosError } from 'axios'
 import { useState } from 'react'
 import { useAddToCartMutation } from '@/hooks/useCart'
+import { useFavoriteToggle } from '@/hooks/useFavorites'
 import { useNftQuery } from '@/hooks/useNft'
 import type { Nft } from '@/types/nft'
 import { getErrorMessage } from '@/utils/api-error.helper'
@@ -40,11 +41,14 @@ function NftDetailView({ nft }: NftDetailViewProps) {
   const [editionId, setEditionId] = useState(
     () => (nft.editions.find((edition) => edition.available > 0) ?? nft.editions[0]).id,
   )
-  const [quantity, setQuantity] = useState(1)
+  const [requestedQuantity, setQuantity] = useState(1)
+  const favorites = useFavoriteToggle()
+  const isFavorite = favorites.isFavorite(nft.id)
 
   const edition = nft.editions.find((item) => item.id === editionId) ?? nft.editions[0]
   const soldOut = edition.available === 0
   const maxQuantity = Math.max(1, Math.min(edition.available, edition.maxPerOrder))
+  const quantity = Math.min(requestedQuantity, maxQuantity)
 
   const navigate = useNavigate()
   const addToCart = useAddToCartMutation()
@@ -72,7 +76,13 @@ function NftDetailView({ nft }: NftDetailViewProps) {
         <NftBreadcrumb />
 
         <div className="flex flex-col lg:flex-row lg:gap-8">
-          <NftGallery nft={nft} activeIndex={activeImage} onActiveChange={setActiveImage} />
+          <NftGallery
+            nft={nft}
+            activeIndex={activeImage}
+            onActiveChange={setActiveImage}
+            isFavorite={isFavorite}
+            onToggleFavorite={() => favorites.onToggle(nft)}
+          />
 
           <div className="relative -mt-[114px] flex flex-col gap-3 rounded-t-[31px] bg-surface-card px-6 pt-8 pb-48 lg:m-0 lg:min-w-0 lg:flex-1 lg:justify-between lg:gap-0 lg:rounded-none lg:bg-transparent lg:p-0">
             <NftSummary nft={nft} edition={edition} />
@@ -84,7 +94,14 @@ function NftDetailView({ nft }: NftDetailViewProps) {
               soldOut={soldOut}
               onBuyNow={handleBuyNow}
               pending={addToCart.isPending}
+              isFavorite={isFavorite}
+              onToggleFavorite={() => favorites.onToggle(nft)}
             />
+            {!soldOut && (
+              <p className="text-sm leading-4 text-text-secondary">
+                {edition.available} de {edition.supply} disponíveis · máximo {edition.maxPerOrder} por pedido
+              </p>
+            )}
             {addToCart.isError && (
               <p role="alert" className="text-sm leading-5 text-destructive">
                 {getErrorMessage(addToCart.error)}

@@ -1,31 +1,60 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useCanGoBack, useNavigate, useRouter } from '@tanstack/react-router'
-import { isAxiosError } from 'axios'
 import { ChevronLeft } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/shadcn/ui/button'
 import { Container } from '@/components/shared/container'
 import { useSessionQuery } from '@/hooks/useAuth'
-import { cartKeys, useCartQuery } from '@/hooks/useCart'
+import { cartKeys, useAcceptCartChangesMutation, useCartQuery } from '@/hooks/useCart'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { nftKeys } from '@/hooks/useNft'
-import { useCreateOrderMutation } from '@/hooks/useOrders'
-import { useWalletsQuery } from '@/hooks/useWallets'
-import { WALLET_PROVIDER_LABELS } from '@/constants/wallet'
+import { orderKeys, useCreateOrderMutation } from '@/hooks/useOrders'
+import { useConnectWalletMutation, useWalletsQuery } from '@/hooks/useWallets'
+import { announce } from '@/lib/announcer'
+import { CartIssues } from '@/pages/public/cart/components/cart-issues'
 import type { Network } from '@/types/common'
-import type { ApiError } from '@/types/error'
-import type { Order } from '@/types/order'
+import type { Buyer } from '@/types/order'
 import type { Quote } from '@/types/quote'
 import type { User } from '@/types/user'
-import type { Wallet, WalletProvider } from '@/types/wallet'
-import { getErrorMessage } from '@/utils/api-error.helper'
+import type { Wallet, WalletConnection as WalletConnectionData, WalletProvider } from '@/types/wallet'
+import { getErrorCode, getErrorMessage, getFieldErrors, isNetworkFailure } from '@/utils/api-error.helper'
+import {
+  readCheckoutAttempt,
+  readCheckoutDraft,
+  saveCheckoutAttempt,
+  saveCheckoutDraft,
+  type CheckoutAttempt,
+} from '@/utils/checkout-storage.helper'
 import { formatEth } from '@/utils/money.helper'
 import { CheckoutOrderSummary } from './components/checkout-order-summary'
-import { CheckoutProfileForm, type CheckoutBuyerFields } from './components/checkout-profile-form'
+import {
+  validateCheckoutFields,
+  type CheckoutErrors,
+  type CheckoutFields,
+} from '@/utils/checkout-validation.helper'
+import { CheckoutProfileForm } from './components/checkout-profile-form'
+import { CheckoutReviewDialog } from './components/checkout-review-dialog'
 import { ConnectedWallets } from './components/connected-wallets'
-import { OrderConfirmationModal } from './components/order-confirmation-modal'
+import { WalletConnection } from './components/wallet-connection'
 import { WalletProviderOptions } from './components/wallet-provider-options'
 
-const QUOTE_CONFLICTS: ApiError['code'][] = ['PRICE_CHANGED', 'AVAILABILITY_CONFLICT', 'CONFLICT', 'NOT_FOUND']
+const QUOTE_ERRORS = ['QUOTE_OUTDATED', 'PRICE_CHANGED', 'AVAILABILITY_CONFLICT']
+
+interface CheckoutDraft {
+  walletId: string
+  network: Network | ''
+  provider: WalletProvider
+  fields: CheckoutFields
+}
+
+function quoteSignature(quote: Quote) {
+  return JSON.stringify([
+    quote.total,
+    quote.couponCode,
+    quote.networkFee,
+    quote.lines.map((line) => [line.editionId, line.quantity, line.unitPrice]),
+  ])
+}
 
 export function Checkout() {
   const cart = useCartQuery()
@@ -57,7 +86,7 @@ export function Checkout() {
     )
   }
 
-  return <CheckoutView quote={cart.data} wallets={wallets.data} user={session.data} />
+  return <CheckoutView key={session.data.id} quote={cart.data} wallets={wallets.data} user={session.data} />
 }
 
 interface CheckoutViewProps {
@@ -66,38 +95,89 @@ interface CheckoutViewProps {
   user: User
 }
 
+function initialNetwork(wallet: Wallet | undefined, quote: Quote): Network | '' {
+  if (!wallet) return ''
+  return wallet.networks.includes(quote.network) ? quote.network : wallet.networks[0]
+}
+
 function CheckoutView({ quote, wallets, user }: CheckoutViewProps) {
   const router = useRouter()
   const navigate = useNavigate()
   const canGoBack = useCanGoBack()
   const queryClient = useQueryClient()
+  const cart = useCartQuery()
   const createOrder = useCreateOrderMutation()
-  const formRef = useRef<HTMLFormElement>(null)
+  const connectWallet = useConnectWalletMutation()
+  const acceptChanges = useAcceptCartChangesMutation()
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const submittingRef = useRef(false)
+  const reviewTriggerRef = useRef<HTMLButtonElement>(null)
 
-  const defaultWallet = wallets.find((wallet) => wallet.kind === 'primary') ?? wallets[0]
+  const [draft] = useState(() => readCheckoutDraft<CheckoutDraft>(user.id))
+  const defaultWallet =
+    wallets.find((wallet) => wallet.id === draft?.walletId) ??
+    wallets.find((wallet) => wallet.kind === 'primary') ??
+    wallets[0]
+
   const [walletId, setWalletId] = useState(defaultWallet?.id ?? '')
   const [network, setNetwork] = useState<Network | ''>(() =>
-    defaultWallet ? (defaultWallet.networks.includes(quote.network) ? quote.network : defaultWallet.networks[0]) : '',
+    draft?.network && defaultWallet?.networks.includes(draft.network) ? draft.network : initialNetwork(defaultWallet, quote),
   )
-  const [provider, setProvider] = useState<WalletProvider>(defaultWallet?.provider ?? 'coinbase')
-  const [buyer, setBuyer] = useState<CheckoutBuyerFields>({ name: user.name, email: user.email })
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
-  const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null)
+  const [provider, setProvider] = useState<WalletProvider>(draft?.provider ?? defaultWallet?.provider ?? 'coinbase')
+  const [fields, setFields] = useState<CheckoutFields>(
+    () =>
+      draft?.fields ?? {
+        name: user.name,
+        username: user.username,
+        profileName: user.name,
+        referralCode: user.referralCode ?? '',
+        email: user.email,
+        secondaryWallet: '',
+        note: '',
+      },
+  )
+  const [errors, setErrors] = useState<CheckoutErrors>({})
+  const [connection, setConnection] = useState<WalletConnectionData | null>(null)
+  const [connectionHint, setConnectionHint] = useState<string>()
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [reviewRefreshing, setReviewRefreshing] = useState(false)
+  const [reviewedSignature, setReviewedSignature] = useState<string | null>(null)
+  const [pendingAttempt, setPendingAttempt] = useState<CheckoutAttempt | null>(() => readCheckoutAttempt(user.id))
 
-  const orderError = createOrder.error
-  const declined = createOrder.data?.status === 'declined' ? createOrder.data : null
-  const errorMessage = declined
-    ? `Pagamento recusado: ${declined.declineReason ?? 'tente novamente.'}`
-    : orderError
-      ? getErrorMessage(orderError)
-      : null
+  useEffect(() => {
+    saveCheckoutDraft(user.id, { walletId, network, provider, fields } satisfies CheckoutDraft)
+  }, [user.id, walletId, network, provider, fields])
+
+  const wallet = wallets.find((item) => item.id === walletId)
+  const buyer: Buyer = { name: fields.name.trim(), email: fields.email.trim(), phone: user.phone }
+  const changed = reviewedSignature !== null && reviewedSignature !== quoteSignature(quote)
+  const serverErrors = getFieldErrors(createOrder.error)
+  const visibleErrors: CheckoutErrors = { ...serverErrors, ...errors }
+  const orderError = createOrder.error ? getErrorMessage(createOrder.error) : undefined
+  const canRetry = Boolean(pendingAttempt) && isNetworkFailure(createOrder.error)
+
+  function resetConnection() {
+    setConnection(null)
+    connectWallet.reset()
+  }
 
   function handleWalletChange(id: string) {
+    const next = wallets.find((item) => item.id === id)
     setWalletId(id)
-    const wallet = wallets.find((item) => item.id === id)
-    if (!wallet) return
-    setProvider(wallet.provider)
-    if (network && !wallet.networks.includes(network)) setNetwork(wallet.networks[0])
+    resetConnection()
+    if (!next) return
+    setProvider(next.provider)
+    if (!network || !next.networks.includes(network)) setNetwork(next.networks[0])
+  }
+
+  function handleNetworkChange(next: Network) {
+    setNetwork(next)
+    resetConnection()
+  }
+
+  function handleProviderChange(next: WalletProvider) {
+    setProvider(next)
+    resetConnection()
   }
 
   function handleBack() {
@@ -105,38 +185,102 @@ function CheckoutView({ quote, wallets, user }: CheckoutViewProps) {
     else navigate({ to: '/carrinho' })
   }
 
-  function handleConfirm() {
-    const form = formRef.current
-    if (form && form.offsetParent !== null && !form.reportValidity()) return
-    if (!walletId || !network) return
-
-    createOrder.mutate(
+  function handleConnect() {
+    if (!walletId || !network) {
+      setErrors((current) => ({
+        ...current,
+        wallet: walletId ? undefined : 'Selecione uma carteira.',
+        network: network ? undefined : 'Selecione uma rede.',
+      }))
+      return
+    }
+    setConnectionHint(undefined)
+    connectWallet.mutate(
+      { walletId, network },
       {
-        input: { quoteId: quote.id, walletId, network, buyer: { ...buyer, phone: user.phone } },
-        idempotencyKey,
-      },
-      {
-        onSuccess: (order) => {
-          if (order.status === 'confirmed') setConfirmedOrder(order)
-          else setIdempotencyKey(crypto.randomUUID())
+        onSuccess: (result) => {
+          setConnection(result)
+          announce('Carteira conectada.')
         },
-        onError: (error) => {
-          if (isAxiosError<ApiError>(error) && error.response) {
-            setIdempotencyKey(crypto.randomUUID())
-            if (QUOTE_CONFLICTS.includes(error.response.data.code)) {
-              queryClient.invalidateQueries({ queryKey: cartKeys.all })
-              queryClient.invalidateQueries({ queryKey: nftKeys.all })
-            }
-          }
-        },
+        onError: (error) => announce(getErrorMessage(error), 'assertive'),
       },
     )
   }
 
-  function handleCloseConfirmation() {
-    queryClient.invalidateQueries({ queryKey: cartKeys.all })
-    queryClient.invalidateQueries({ queryKey: nftKeys.all })
-    navigate({ to: '/' })
+  function handleDisconnect() {
+    resetConnection()
+    announce('Carteira desconectada.')
+  }
+
+  async function handleReview() {
+    const nextErrors = validateCheckoutFields(fields, isDesktop)
+    if (!walletId) nextErrors.wallet = 'Selecione uma carteira.'
+    if (!network) nextErrors.network = 'Selecione uma rede.'
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) {
+      announce('Corrija os campos destacados antes de continuar.', 'assertive')
+      requestAnimationFrame(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus())
+      return
+    }
+    if (!connection) {
+      setConnectionHint('Conecte sua carteira para revisar o pedido.')
+      announce('Conecte sua carteira para revisar o pedido.', 'assertive')
+      return
+    }
+
+    if (!pendingAttempt) createOrder.reset()
+    setReviewOpen(true)
+    setReviewRefreshing(true)
+    const fresh = await cart.refetch()
+    setReviewRefreshing(false)
+    if (fresh.data) setReviewedSignature(quoteSignature(fresh.data))
+  }
+
+  function submitOrder(attempt: CheckoutAttempt) {
+    if (submittingRef.current) return
+    submittingRef.current = true
+    saveCheckoutAttempt(user.id, attempt)
+    setPendingAttempt(attempt)
+
+    createOrder.mutate(attempt, {
+      onSuccess: (order) => {
+        saveCheckoutAttempt(user.id, null)
+        setPendingAttempt(null)
+        queryClient.setQueryData(orderKeys.detail(user.id, order.id), order)
+        navigate({ to: '/pedido/$orderId', params: { orderId: order.id }, replace: true })
+      },
+      onError: (error) => {
+        if (isNetworkFailure(error)) {
+          announce('Não recebemos a resposta do pedido. Tente novamente; o mesmo pedido será recuperado.', 'assertive')
+          return
+        }
+        saveCheckoutAttempt(user.id, null)
+        setPendingAttempt(null)
+        announce(getErrorMessage(error), 'assertive')
+        if (QUOTE_ERRORS.includes(getErrorCode(error) ?? '')) {
+          queryClient.invalidateQueries({ queryKey: cartKeys.all })
+          queryClient.invalidateQueries({ queryKey: nftKeys.all })
+        }
+      },
+      onSettled: () => {
+        submittingRef.current = false
+      },
+    })
+  }
+
+  function handleConfirm() {
+    if (pendingAttempt) {
+      submitOrder(pendingAttempt)
+      return
+    }
+    if (!network) return
+    submitOrder({ idempotencyKey: crypto.randomUUID(), input: { quoteId: quote.id, walletId, network, buyer } })
+  }
+
+  function handleResumeAttempt() {
+    if (!pendingAttempt) return
+    setReviewOpen(true)
+    submitOrder(pendingAttempt)
   }
 
   return (
@@ -171,7 +315,22 @@ function CheckoutView({ quote, wallets, user }: CheckoutViewProps) {
         </ol>
       </nav>
 
-      {quote.lines.length === 0 && !confirmedOrder ? (
+      {pendingAttempt && !reviewOpen && (
+        <div role="alert" className="flex flex-col gap-3 rounded-md border border-primary p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm leading-5">
+            Existe um pedido enviado sem resposta. Verifique antes de tentar uma nova compra.
+          </p>
+          <button
+            type="button"
+            onClick={handleResumeAttempt}
+            className="h-10 shrink-0 rounded-md bg-primary px-4 text-sm font-bold text-ink"
+          >
+            Verificar pedido
+          </button>
+        </div>
+      )}
+
+      {quote.lines.length === 0 ? (
         <div className="flex flex-col items-start gap-4 py-12">
           <p className="text-section font-bold">Seu carrinho está vazio</p>
           <Button asChild className="h-10 rounded-md px-4 text-base font-bold">
@@ -183,18 +342,19 @@ function CheckoutView({ quote, wallets, user }: CheckoutViewProps) {
       ) : (
         <div className="flex flex-1 flex-col gap-6 lg:flex-row lg:gap-8 xl:justify-between">
           <CheckoutProfileForm
-            formRef={formRef}
             wallets={wallets}
             walletId={walletId}
             onWalletChange={handleWalletChange}
             network={network}
-            onNetworkChange={setNetwork}
-            buyer={buyer}
-            onBuyerChange={setBuyer}
+            onNetworkChange={handleNetworkChange}
+            fields={fields}
+            onFieldsChange={setFields}
+            errors={visibleErrors}
           />
 
           <div className="flex flex-1 flex-col gap-6 lg:w-[405px] lg:flex-none lg:gap-3">
             <CheckoutOrderSummary quote={quote} />
+            <CartIssues quote={quote} onAccept={() => acceptChanges.mutate()} pending={acceptChanges.isPending} />
 
             <ConnectedWallets wallets={wallets} value={walletId} onChange={handleWalletChange} />
 
@@ -202,7 +362,16 @@ function CheckoutView({ quote, wallets, user }: CheckoutViewProps) {
               <h2 id="wallet-provider-title" className="text-body leading-4 font-bold lg:text-center lg:text-[17px]">
                 Carteira e rede
               </h2>
-              <WalletProviderOptions value={provider} onChange={setProvider} />
+              <WalletProviderOptions value={provider} onChange={handleProviderChange} />
+
+              <WalletConnection
+                connection={connection}
+                canConnect={Boolean(walletId && network)}
+                pending={connectWallet.isPending}
+                error={connectWallet.error ? getErrorMessage(connectWallet.error) : connectionHint}
+                onConnect={handleConnect}
+                onDisconnect={handleDisconnect}
+              />
 
               <p className="flex items-center justify-end gap-4 lg:hidden">
                 <span className="text-body leading-4 font-bold">Total:</span>
@@ -210,9 +379,9 @@ function CheckoutView({ quote, wallets, user }: CheckoutViewProps) {
               </p>
 
               <div className="mt-auto flex flex-col gap-2 lg:mt-0">
-                {errorMessage && (
+                {(visibleErrors.name || visibleErrors.email) && !isDesktop && (
                   <p role="alert" className="text-center text-sm leading-5 text-destructive">
-                    {errorMessage}
+                    {visibleErrors.name ?? visibleErrors.email} Atualize seus dados no perfil.
                   </p>
                 )}
                 {wallets.length === 0 && (
@@ -221,12 +390,13 @@ function CheckoutView({ quote, wallets, user }: CheckoutViewProps) {
                   </p>
                 )}
                 <button
+                  ref={reviewTriggerRef}
                   type="button"
-                  onClick={handleConfirm}
-                  disabled={createOrder.isPending || !walletId || !network}
+                  onClick={handleReview}
+                  disabled={quote.issues.length > 0 || createOrder.isPending}
                   className="h-[60px] rounded-[40px] bg-linear-to-r from-primary to-primary/80 text-lg leading-4 font-bold text-ink disabled:cursor-not-allowed disabled:opacity-60 lg:h-[45px] lg:rounded-lg lg:bg-primary lg:bg-none lg:text-body"
                 >
-                  {createOrder.isPending ? 'Confirmando...' : 'Confirmar compra'}
+                  Confirmar compra
                 </button>
               </div>
             </section>
@@ -234,13 +404,25 @@ function CheckoutView({ quote, wallets, user }: CheckoutViewProps) {
         </div>
       )}
 
-      {confirmedOrder && (
-        <OrderConfirmationModal
-          order={confirmedOrder}
-          walletName={WALLET_PROVIDER_LABELS[provider]}
-          onClose={handleCloseConfirmation}
-        />
-      )}
+      <CheckoutReviewDialog
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+        quote={cart.data}
+        refreshing={reviewRefreshing}
+        changed={changed}
+        onAcknowledgeChanges={() => setReviewedSignature(quoteSignature(quote))}
+        onAcceptIssues={() => acceptChanges.mutate()}
+        acceptPending={acceptChanges.isPending}
+        wallet={wallet}
+        network={network}
+        buyer={buyer}
+        submitting={createOrder.isPending}
+        error={orderError}
+        canRetry={canRetry}
+        onConfirm={handleConfirm}
+        returnFocusRef={reviewTriggerRef}
+      />
     </div>
   )
 }
+

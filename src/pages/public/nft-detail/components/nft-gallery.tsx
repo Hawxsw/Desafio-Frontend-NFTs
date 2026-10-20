@@ -1,4 +1,4 @@
-import { Link, useCanGoBack, useRouter } from '@tanstack/react-router'
+import { useCanGoBack, useRouter } from '@tanstack/react-router'
 import { ChevronLeft, Heart } from 'lucide-react'
 import type { Nft } from '@/types/nft'
 import { cn } from '@/utils/shadcn.helper'
@@ -7,12 +7,14 @@ interface NftGalleryProps {
   nft: Nft
   activeIndex: number
   onActiveChange: (index: number) => void
+  isFavorite: boolean
+  onToggleFavorite: () => void
 }
 
 const ICON_BUTTON_CLASS =
   'flex size-[35px] items-center justify-center rounded-full border border-surface-border bg-surface-raised p-2 text-text-secondary transition-colors hover:text-text-accent'
 
-export function NftGallery({ nft, activeIndex, onActiveChange }: NftGalleryProps) {
+export function NftGallery({ nft, activeIndex, onActiveChange, isFavorite, onToggleFavorite }: NftGalleryProps) {
   const router = useRouter()
   const canGoBack = useCanGoBack()
 
@@ -47,9 +49,15 @@ export function NftGallery({ nft, activeIndex, onActiveChange }: NftGalleryProps
           <button type="button" aria-label="Voltar" onClick={handleBack} className={ICON_BUTTON_CLASS}>
             <ChevronLeft className="size-5" />
           </button>
-          <Link to="/login" aria-label="Entre para favoritar" className={ICON_BUTTON_CLASS}>
+          <button
+            type="button"
+            aria-pressed={isFavorite}
+            aria-label={isFavorite ? `Remover ${nft.name} dos favoritos` : `Favoritar ${nft.name}`}
+            onClick={onToggleFavorite}
+            className={ICON_BUTTON_CLASS}
+          >
             <Heart className="h-[14.23px] w-4 text-text-accent" />
-          </Link>
+          </button>
         </div>
         <img
           src={nft.images[activeIndex]}

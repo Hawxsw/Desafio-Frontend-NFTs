@@ -3,8 +3,21 @@ import { hashPassword, requireUser, toPublicUser } from '@/mocks/auth'
 import { getDb, updateDb } from '@/mocks/db'
 import { apiError } from '@/mocks/errors'
 import { simulateNetwork } from '@/mocks/network'
-import type { ChangePasswordInput, UpdateProfileInput } from '@/types/user'
+import type { ChangePasswordInput, UpdateAvatarInput, UpdateProfileInput } from '@/types/user'
 import { isValidEmail, isValidUsername, MIN_PASSWORD_LENGTH } from '@/utils/validation.helper'
+
+const AVATAR_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/
+const MAX_AVATAR_LENGTH = 700_000
+
+function saveAvatar(userId: string, avatarUrl: string | null) {
+  return updateDb((db) => {
+    const stored = db.users.find((item) => item.id === userId)
+    if (!stored) return null
+    stored.avatarUrl = avatarUrl
+    stored.updatedAt = new Date().toISOString()
+    return toPublicUser(stored)
+  })
+}
 
 export const userHandlers = [
   http.patch<never, UpdateProfileInput>('/api/me', async ({ request }) => {
@@ -79,5 +92,41 @@ export const userHandlers = [
       }
     })
     return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.put<never, UpdateAvatarInput>('/api/me/avatar', async ({ request }) => {
+    const failure = await simulateNetwork()
+    if (failure) return failure
+
+    const user = requireUser(request)
+    if (user instanceof Response) return user
+
+    const { dataUrl = '' } = await request.json()
+    if (!AVATAR_PATTERN.test(dataUrl)) {
+      return apiError(422, 'VALIDATION_ERROR', 'Verifique os campos destacados.', {
+        fieldErrors: { avatar: 'Envie uma imagem PNG, JPG ou WebP.' },
+      })
+    }
+    if (dataUrl.length > MAX_AVATAR_LENGTH) {
+      return apiError(422, 'VALIDATION_ERROR', 'Verifique os campos destacados.', {
+        fieldErrors: { avatar: 'A imagem precisa ter no máximo 500 KB.' },
+      })
+    }
+
+    const updated = saveAvatar(user.id, dataUrl)
+    if (!updated) return apiError(404, 'NOT_FOUND', 'Usuário não encontrado.')
+    return HttpResponse.json(updated)
+  }),
+
+  http.delete('/api/me/avatar', async ({ request }) => {
+    const failure = await simulateNetwork()
+    if (failure) return failure
+
+    const user = requireUser(request)
+    if (user instanceof Response) return user
+
+    const updated = saveAvatar(user.id, null)
+    if (!updated) return apiError(404, 'NOT_FOUND', 'Usuário não encontrado.')
+    return HttpResponse.json(updated)
   }),
 ]

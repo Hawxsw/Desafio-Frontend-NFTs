@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router'
 import { Heart } from 'lucide-react'
 import { QuantityStepper } from '@/components/shared/quantity-stepper'
 
@@ -9,6 +8,8 @@ interface NftPurchaseActionsProps {
   soldOut: boolean
   onBuyNow?: () => void
   pending?: boolean
+  isFavorite: boolean
+  onToggleFavorite: () => void
 }
 
 export function NftPurchaseActions({
@@ -18,6 +19,8 @@ export function NftPurchaseActions({
   soldOut,
   onBuyNow,
   pending = false,
+  isFavorite,
+  onToggleFavorite,
 }: NftPurchaseActionsProps) {
   return (
     <div className="hidden items-center justify-between lg:flex">
@@ -32,13 +35,15 @@ export function NftPurchaseActions({
         >
           {soldOut ? 'Esgotado' : 'Comprar'}
         </button>
-        <Link
-          to="/login"
+        <button
+          type="button"
+          aria-pressed={isFavorite}
+          onClick={onToggleFavorite}
           className="flex h-10 w-[130px] items-center justify-center gap-2 rounded-md border border-primary text-sm leading-5 font-medium text-text-accent transition-colors hover:bg-primary hover:text-ink"
         >
           <Heart className="size-4" />
           Favoritar
-        </Link>
+        </button>
       </div>
     </div>
   )

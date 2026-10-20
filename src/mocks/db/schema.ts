@@ -20,6 +20,16 @@ export interface IdempotencyRecord {
   fingerprint: string
 }
 
+export interface StoredQuote extends Quote {
+  ownerKey: string
+}
+
+export interface StoredOrder extends Order {
+  ownerKey: string
+  settlesAt: string
+  outcome: 'confirmed' | 'declined'
+}
+
 export interface MockDatabase {
   schemaVersion: number
   nfts: Nft[]
@@ -29,7 +39,8 @@ export interface MockDatabase {
   coupons: Coupon[]
   favorites: Record<string, string[]>
   carts: Record<string, Cart>
-  quotes: Record<string, Quote>
-  orders: Record<string, Order>
+  quotes: Record<string, StoredQuote>
+  orders: Record<string, StoredOrder>
   idempotency: Record<string, IdempotencyRecord>
+  disruptionApplied: boolean
 }

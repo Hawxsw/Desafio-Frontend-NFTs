@@ -1,6 +1,5 @@
-import { Search, SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import { useState } from 'react'
-import { Input } from '@/components/shadcn/ui/input'
 import {
   Sheet,
   SheetContent,
@@ -12,32 +11,21 @@ import {
 import { Container } from '@/components/shared/container'
 import type { NftFacets, NftListParams } from '@/types/nft'
 import { CatalogFilters } from './catalog-filters'
+import { CatalogSearch } from './catalog-search'
 
 interface CatalogMobileBarProps {
   facets?: NftFacets
   params: NftListParams
   onParamsChange: (changes: Partial<NftListParams>) => void
+  onSearch: (value: string) => void
 }
 
-export function CatalogMobileBar({ facets, params, onParamsChange }: CatalogMobileBarProps) {
+export function CatalogMobileBar({ facets, params, onParamsChange, onSearch }: CatalogMobileBarProps) {
   const [open, setOpen] = useState(false)
 
   return (
     <Container className="flex gap-3 xl:hidden">
-      <div role="search" className="relative flex-1">
-        <label htmlFor="mobile-search" className="sr-only">
-          Buscar NFTs
-        </label>
-        <Search aria-hidden className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-text-secondary" />
-        <Input
-          id="mobile-search"
-          type="search"
-          placeholder="Explorar coleções"
-          value={params.q ?? ''}
-          onChange={(event) => onParamsChange({ q: event.target.value, page: 1 })}
-          className="h-11 rounded-xl border-0 bg-surface-card pl-12 text-base"
-        />
-      </div>
+      <CatalogSearch value={params.q ?? ''} onSearch={onSearch} className="flex-1" />
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
@@ -54,7 +42,12 @@ export function CatalogMobileBar({ facets, params, onParamsChange }: CatalogMobi
             <SheetTitle>Filtros</SheetTitle>
             <SheetDescription className="sr-only">Filtre o catálogo por coleção, preço e rede</SheetDescription>
           </SheetHeader>
-          <CatalogFilters facets={facets} params={params} onParamsChange={onParamsChange} />
+          <CatalogFilters
+            key={`${params.minPrice}-${params.maxPrice}`}
+            facets={facets}
+            params={params}
+            onParamsChange={onParamsChange}
+          />
         </SheetContent>
       </Sheet>
     </Container>

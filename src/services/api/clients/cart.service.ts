@@ -39,6 +39,18 @@ export class CartService {
   applyCoupon(code: string) {
     return this.api.put<Quote>('/cart/coupon', { code })
   }
+
+  removeCoupon() {
+    return this.api.delete<Quote>('/cart/coupon')
+  }
+
+  acceptChanges() {
+    return this.api.post<Quote>('/cart/accept-changes')
+  }
+
+  mergeGuestCart() {
+    return this.api.post<Quote>('/cart/merge')
+  }
 }
 
 export const cartService = new CartService(api)

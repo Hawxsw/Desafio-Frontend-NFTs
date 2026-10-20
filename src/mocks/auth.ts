@@ -29,31 +29,46 @@ export function toPublicUser(user: StoredUser): User {
 
 export function requireUser(request: Request): StoredUser | Response {
   const scenario = getScenario()
-  if (scenario === 'session-expired') return apiError(401, 'UNAUTHORIZED', 'Sua sessão expirou. Entre novamente.')
   if (scenario === 'forbidden') return apiError(403, 'FORBIDDEN', 'Você não tem permissão para acessar este recurso.')
 
   const header = request.headers.get('Authorization')
   if (!header?.startsWith(BEARER_PREFIX)) return apiError(401, 'UNAUTHORIZED', 'Entre na sua conta para continuar.')
 
-  const token = header.slice(BEARER_PREFIX.length)
-  const db = getDb()
-  const session = db.sessions.find((item) => item.token === token)
-  if (!session || session.expiresAt < new Date().toISOString()) {
-    return apiError(401, 'UNAUTHORIZED', 'Sua sessão expirou. Entre novamente.')
-  }
-
-  const user = db.users.find((item) => item.id === session.userId)
+  const user = findUserByToken(header.slice(BEARER_PREFIX.length))
   if (!user) return apiError(401, 'UNAUTHORIZED', 'Sua sessão expirou. Entre novamente.')
   return user
 }
 
+export function hasAuthorization(request: Request): boolean {
+  return Boolean(request.headers.get('Authorization')?.startsWith(BEARER_PREFIX))
+}
+
+export function findUserByToken(token: unknown): StoredUser | null {
+  if (typeof token !== 'string') return null
+  const db = getDb()
+  const session = db.sessions.find((item) => item.token === token)
+  if (!session || session.expiresAt <= new Date().toISOString()) return null
+  return db.users.find((item) => item.id === session.userId) ?? null
+}
+
+export function expireSessions(): void {
+  const now = new Date().toISOString()
+  updateDb((db) => {
+    db.sessions.forEach((session) => {
+      session.expiresAt = now
+    })
+  })
+}
+
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000
+const SHORT_SESSION_TTL_MS = 20 * 1000
 
 export function createSession(user: StoredUser): Session {
+  const ttl = getScenario() === 'session-expired' ? SHORT_SESSION_TTL_MS : SESSION_TTL_MS
   const session: Session = {
     token: crypto.randomUUID(),
     user: toPublicUser(user),
-    expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+    expiresAt: new Date(Date.now() + ttl).toISOString(),
   }
   updateDb((db) => {
     db.sessions.push({ token: session.token, userId: user.id, expiresAt: session.expiresAt })

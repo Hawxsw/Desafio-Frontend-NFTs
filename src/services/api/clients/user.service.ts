@@ -1,6 +1,6 @@
 import type { AxiosInstance } from 'axios'
 import { api } from '@/services/api/api'
-import type { ChangePasswordInput, UpdateProfileInput, User } from '@/types/user'
+import type { ChangePasswordInput, UpdateAvatarInput, UpdateProfileInput, User } from '@/types/user'
 
 export class UserService {
   private readonly api: AxiosInstance
@@ -15,6 +15,14 @@ export class UserService {
 
   changePassword(input: ChangePasswordInput) {
     return this.api.post<void>('/me/password', input)
+  }
+
+  updateAvatar(input: UpdateAvatarInput) {
+    return this.api.put<User>('/me/avatar', input)
+  }
+
+  removeAvatar() {
+    return this.api.delete<User>('/me/avatar')
   }
 }
 

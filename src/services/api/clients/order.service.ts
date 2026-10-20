@@ -12,6 +12,10 @@ export class OrderService {
   create(input: CreateOrderInput, idempotencyKey: string) {
     return this.api.post<Order>('/orders', input, { headers: { 'Idempotency-Key': idempotencyKey } })
   }
+
+  get(id: string, signal?: AbortSignal) {
+    return this.api.get<Order>(`/orders/${id}`, { signal })
+  }
 }
 
 export const orderService = new OrderService(api)

@@ -1,0 +1,272 @@
+{
+  "generatedAt": "2026-10-20T15:56:08.032Z",
+  "environment": {
+    "lighthouse": "13.5.0",
+    "chrome": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+    "node": "v24.13.0",
+    "os": "Windows_NT 10.0.26200 (x64)",
+    "cpu": "AMD Ryzen 5 5600G with Radeon Graphics         ",
+    "build": "vite build + vite preview, VITE_ENABLE_MSW=true, cenário padrão",
+    "app": "desafio-frontend-nfts@0.0.0"
+  },
+  "targets": {
+    "performance": 90,
+    "accessibility": 95,
+    "best-practices": 95,
+    "seo": 90
+  },
+  "results": [
+    {
+      "page": "inicio",
+      "path": "/",
+      "profile": "mobile",
+      "median": {
+        "performance": 90,
+        "accessibility": 97,
+        "best-practices": 100,
+        "seo": 83
+      },
+      "metrics": {
+        "LCP": 3211.9439999999995,
+        "CLS": 0.0007193625928183614,
+        "TBT": 136.5
+      },
+      "runs": [
+        {
+          "scores": {
+            "performance": 90,
+            "accessibility": 97,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 3211.9439999999995,
+            "CLS": 0.0007193625928183614,
+            "TBT": 136.5
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        },
+        {
+          "scores": {
+            "performance": 89,
+            "accessibility": 97,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 3234.134,
+            "CLS": 0.0007193625928183614,
+            "TBT": 167
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        },
+        {
+          "scores": {
+            "performance": 90,
+            "accessibility": 97,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 3211.646,
+            "CLS": 0.0007193625928183614,
+            "TBT": 125.5
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        }
+      ]
+    },
+    {
+      "page": "inicio",
+      "path": "/",
+      "profile": "desktop",
+      "median": {
+        "performance": 99,
+        "accessibility": 97,
+        "best-practices": 100,
+        "seo": 83
+      },
+      "metrics": {
+        "LCP": 745.914,
+        "CLS": 0.001634581690708751,
+        "TBT": 5.5
+      },
+      "runs": [
+        {
+          "scores": {
+            "performance": 99,
+            "accessibility": 97,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 811.6895000000002,
+            "CLS": 0.001634581690708751,
+            "TBT": 7.5
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        },
+        {
+          "scores": {
+            "performance": 99,
+            "accessibility": 97,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 745.914,
+            "CLS": 0.001634581690708751,
+            "TBT": 5.5
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        },
+        {
+          "scores": {
+            "performance": 100,
+            "accessibility": 97,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 721.412,
+            "CLS": 0.001634581690708751,
+            "TBT": 3
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        }
+      ]
+    },
+    {
+      "page": "detalhe",
+      "path": "/nft/nft-001",
+      "profile": "mobile",
+      "median": {
+        "performance": 92,
+        "accessibility": 96,
+        "best-practices": 100,
+        "seo": 83
+      },
+      "metrics": {
+        "LCP": 3135.8680000000004,
+        "CLS": 0,
+        "TBT": 63.5
+      },
+      "runs": [
+        {
+          "scores": {
+            "performance": 92,
+            "accessibility": 96,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 3135.8680000000004,
+            "CLS": 0,
+            "TBT": 61.5
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        },
+        {
+          "scores": {
+            "performance": 92,
+            "accessibility": 96,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 3143.976,
+            "CLS": 0,
+            "TBT": 63.5
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        },
+        {
+          "scores": {
+            "performance": 93,
+            "accessibility": 96,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 2987.4680000000003,
+            "CLS": 0,
+            "TBT": 70
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        }
+      ]
+    },
+    {
+      "page": "detalhe",
+      "path": "/nft/nft-001",
+      "profile": "desktop",
+      "median": {
+        "performance": 90,
+        "accessibility": 96,
+        "best-practices": 100,
+        "seo": 83
+      },
+      "metrics": {
+        "LCP": 824.9380000000001,
+        "CLS": 0.2004155467869323,
+        "TBT": 0
+      },
+      "runs": [
+        {
+          "scores": {
+            "performance": 90,
+            "accessibility": 96,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 824.9380000000001,
+            "CLS": 0.2004155467869323,
+            "TBT": 0
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        },
+        {
+          "scores": {
+            "performance": 90,
+            "accessibility": 96,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 826.576,
+            "CLS": 0.2004155467869323,
+            "TBT": 0
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        },
+        {
+          "scores": {
+            "performance": 90,
+            "accessibility": 96,
+            "best-practices": 100,
+            "seo": 83
+          },
+          "metrics": {
+            "LCP": 824.1999999999999,
+            "CLS": 0.2004155467869323,
+            "TBT": 0
+          },
+          "chromeVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+          "lighthouseVersion": "13.5.0"
+        }
+      ]
+    }
+  ]
+}

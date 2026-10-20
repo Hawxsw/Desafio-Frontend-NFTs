@@ -4,7 +4,8 @@ import type { NftListParams } from '@/types/nft'
 
 export const nftKeys = {
   all: ['nfts'] as const,
-  list: (params: NftListParams) => [...nftKeys.all, 'list', params] as const,
+  lists: () => [...nftKeys.all, 'list'] as const,
+  list: (params: NftListParams) => [...nftKeys.lists(), params] as const,
   detail: (id: string) => [...nftKeys.all, 'detail', id] as const,
   featured: () => [...nftKeys.all, 'featured'] as const,
 }

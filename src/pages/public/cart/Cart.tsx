@@ -4,13 +4,16 @@ import { RelatedNfts } from '@/components/related-nfts'
 import { Container } from '@/components/shared/container'
 import { Button } from '@/components/shadcn/ui/button'
 import {
+  useAcceptCartChangesMutation,
   useApplyCouponMutation,
   useCartQuery,
   useRemoveCartItemMutation,
+  useRemoveCouponMutation,
   useUpdateCartItemMutation,
 } from '@/hooks/useCart'
 import type { Quote, QuoteLine } from '@/types/quote'
 import { getErrorMessage } from '@/utils/api-error.helper'
+import { CartIssues } from './components/cart-issues'
 import { CartItemCard } from './components/cart-item-card'
 import { CartSummary } from './components/cart-summary'
 import { CartTable } from './components/cart-table'
@@ -20,6 +23,8 @@ export function Cart() {
   const updateItem = useUpdateCartItemMutation()
   const removeItem = useRemoveCartItemMutation()
   const applyCoupon = useApplyCouponMutation()
+  const removeCoupon = useRemoveCouponMutation()
+  const acceptChanges = useAcceptCartChangesMutation()
 
   if (isPending) {
     return (
@@ -54,7 +59,8 @@ export function Cart() {
     )
   }
 
-  const itemError = updateItem.error ?? removeItem.error
+  const itemError = updateItem.error ?? removeItem.error ?? acceptChanges.error
+  const couponError = applyCoupon.error ?? removeCoupon.error
 
   return (
     <CartView
@@ -63,8 +69,11 @@ export function Cart() {
       onRemove={(line) => removeItem.mutate(line.editionId)}
       itemError={itemError ? getErrorMessage(itemError) : undefined}
       onApplyCoupon={(code) => applyCoupon.mutate(code)}
-      couponPending={applyCoupon.isPending}
-      couponError={applyCoupon.isError ? getErrorMessage(applyCoupon.error) : undefined}
+      onRemoveCoupon={() => removeCoupon.mutate()}
+      couponPending={applyCoupon.isPending || removeCoupon.isPending}
+      couponError={couponError ? getErrorMessage(couponError) : undefined}
+      onAcceptChanges={() => acceptChanges.mutate()}
+      acceptPending={acceptChanges.isPending}
     />
   )
 }
@@ -75,8 +84,11 @@ interface CartViewProps {
   onRemove: (line: QuoteLine) => void
   itemError?: string
   onApplyCoupon: (code: string) => void
+  onRemoveCoupon: () => void
   couponPending: boolean
   couponError?: string
+  onAcceptChanges: () => void
+  acceptPending: boolean
 }
 
 export function CartView({
@@ -85,8 +97,11 @@ export function CartView({
   onRemove,
   itemError,
   onApplyCoupon,
+  onRemoveCoupon,
   couponPending,
   couponError,
+  onAcceptChanges,
+  acceptPending,
 }: CartViewProps) {
   const router = useRouter()
   const canGoBack = useCanGoBack()
@@ -129,6 +144,8 @@ export function CartView({
           </ol>
         </nav>
 
+        <CartIssues quote={quote} onAccept={onAcceptChanges} pending={acceptPending} className="mx-7 lg:mx-0" />
+
         {itemError && (
           <p role="alert" className="px-7 text-sm leading-5 text-destructive lg:px-0">
             {itemError}
@@ -143,15 +160,18 @@ export function CartView({
                 key={line.editionId}
                 line={line}
                 onQuantityChange={(quantity) => onQuantityChange(line, quantity)}
+                onRemove={() => onRemove(line)}
               />
             ))}
           </ul>
           <CartSummary
             quote={quote}
             onApplyCoupon={onApplyCoupon}
+            onRemoveCoupon={onRemoveCoupon}
             couponPending={couponPending}
             couponError={couponError}
             onCheckout={() => router.navigate({ to: '/pagamento' })}
+            checkoutBlocked={quote.issues.length > 0}
           />
         </div>
       </div>
@@ -160,3 +180,4 @@ export function CartView({
     </div>
   )
 }
+

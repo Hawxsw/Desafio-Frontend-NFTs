@@ -5,7 +5,7 @@ import { SEED_WALLETS } from '@/mocks/data/wallets'
 import type { ScenarioId } from '@/mocks/scenarios'
 import type { MockDatabase } from './schema'
 
-export const SCHEMA_VERSION = 5
+export const SCHEMA_VERSION = 6
 
 export function createSeed(scenario: ScenarioId): MockDatabase {
   return {
@@ -20,5 +20,6 @@ export function createSeed(scenario: ScenarioId): MockDatabase {
     quotes: {},
     orders: {},
     idempotency: {},
+    disruptionApplied: false,
   }
 }

@@ -6,12 +6,22 @@ import { formatEth } from '@/utils/money.helper'
 interface CartSummaryProps {
   quote: Quote
   onApplyCoupon?: (code: string) => void
+  onRemoveCoupon?: () => void
   couponPending?: boolean
   couponError?: string
   onCheckout?: () => void
+  checkoutBlocked?: boolean
 }
 
-export function CartSummary({ quote, onApplyCoupon, couponPending = false, couponError, onCheckout }: CartSummaryProps) {
+export function CartSummary({
+  quote,
+  onApplyCoupon,
+  onRemoveCoupon,
+  couponPending = false,
+  couponError,
+  onCheckout,
+  checkoutBlocked = false,
+}: CartSummaryProps) {
   const couponErrorId = useId()
   const couponId = useId()
   const [coupon, setCoupon] = useState(quote.couponCode ?? '')
@@ -62,6 +72,24 @@ export function CartSummary({ quote, onApplyCoupon, couponPending = false, coupo
             {couponError}
           </p>
         )}
+        {quote.couponCode && onRemoveCoupon && (
+          <p className="flex items-center justify-between gap-2 text-xs leading-4">
+            <span>
+              Cupom <strong className="text-text-accent">{quote.couponCode}</strong> aplicado
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setCoupon('')
+                onRemoveCoupon()
+              }}
+              disabled={couponPending}
+              className="text-text-accent underline disabled:opacity-60"
+            >
+              Remover cupom
+            </button>
+          </p>
+        )}
       </form>
 
       <dl className="flex flex-col gap-3">
@@ -73,14 +101,16 @@ export function CartSummary({ quote, onApplyCoupon, couponPending = false, coupo
         </div>
         <div className="flex items-center justify-between text-lg leading-4 font-bold lg:mt-3">
           <dt>Total</dt>
-          <dd className="text-text-accent">{formatEth(quote.total)}</dd>
+          <dd className="text-text-accent">
+            {formatEth(quote.total)}
+          </dd>
         </div>
       </dl>
 
       <div className="flex flex-col gap-3">
         <button
           type="button"
-          disabled={!onCheckout}
+          disabled={!onCheckout || checkoutBlocked}
           title={onCheckout ? undefined : 'Disponível em breve'}
           onClick={onCheckout}
           className="h-[60px] rounded-[40px] bg-linear-to-r from-primary to-primary/80 text-lg leading-4 font-bold text-ink disabled:cursor-not-allowed disabled:opacity-60 lg:h-10 lg:rounded-[3px] lg:bg-primary lg:bg-none lg:text-body"
