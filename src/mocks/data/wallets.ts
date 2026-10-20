@@ -1,0 +1,40 @@
+import type { Wallet } from '@/types/wallet'
+
+export const SEED_WALLETS: Wallet[] = [
+  {
+    id: 'wal-ana-1',
+    userId: 'usr-ana',
+    kind: 'primary',
+    provider: 'metamask',
+    label: 'Carteira principal',
+    address: '0x5a1b8e3c9d2f4a6b7c8d9e0f1a2b3c4d5e6f7a8b',
+    ensName: null,
+    networks: ['ethereum', 'polygon', 'solana'],
+    createdAt: '2026-01-10T12:00:00.000Z',
+    updatedAt: '2026-01-10T12:00:00.000Z',
+  },
+  {
+    id: 'wal-ana-2',
+    userId: 'usr-ana',
+    kind: 'secondary',
+    provider: 'coinbase',
+    label: 'Carteira secundária',
+    address: '0x9c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d',
+    ensName: null,
+    networks: ['polygon'],
+    createdAt: '2026-01-12T12:00:00.000Z',
+    updatedAt: '2026-01-12T12:00:00.000Z',
+  },
+  {
+    id: 'wal-bruno-1',
+    userId: 'usr-bruno',
+    kind: 'primary',
+    provider: 'metamask',
+    label: 'Carteira principal',
+    address: '0x3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f',
+    ensName: null,
+    networks: ['ethereum'],
+    createdAt: '2026-02-05T12:00:00.000Z',
+    updatedAt: '2026-02-05T12:00:00.000Z',
+  },
+]
