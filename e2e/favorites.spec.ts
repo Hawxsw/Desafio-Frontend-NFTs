@@ -1,9 +1,9 @@
 import { expect, test } from './support/fixtures'
 
-function favoriteButton(page: import('@playwright/test').Page, desktop: boolean) {
+function favoriteButton(page: import('@playwright/test').Page, desktop: boolean, name = 'Golden Signal') {
   return desktop
     ? page.getByRole('button', { name: 'Favoritar', exact: true })
-    : page.getByRole('button', { name: /Favoritar Golden Signal|Remover Golden Signal/ })
+    : page.getByRole('button', { name: new RegExp(`(Favoritar|Remover) ${name}`) })
 }
 
 test.describe('favoritos', () => {
@@ -31,29 +31,23 @@ test.describe('favoritos', () => {
   test('falha na mutation desfaz a atualização otimista e informa o erro', async ({ app, page }) => {
     await app.scenario('favorites-error')
     await app.login('ana')
-    const favoritesLoaded = page.waitForResponse((response) => response.url().endsWith('/api/favorites'))
-    await app.goto('/nft/nft-008')
-    await favoritesLoaded
-    const button = favoriteButton(page, app.isDesktop())
-    await expect(button).toHaveAttribute('aria-pressed', 'false')
-    const optimistic = button.evaluate(
-      (element) =>
-        new Promise<boolean>((resolve) => {
-          new MutationObserver(() => {
-            if (element.getAttribute('aria-pressed') === 'true') resolve(true)
-          }).observe(element, { attributes: true, attributeFilter: ['aria-pressed'] })
-        }),
-    )
-    await button.click()
-    expect(await optimistic).toBe(true)
-    await expect(button).toHaveAttribute('aria-pressed', 'false')
-    await expect(page.getByRole('alert').filter({ hasText: 'Não foi possível salvar o favorito' })).toBeAttached()
+    await app.goto('/nft/nft-002')
+    const button = favoriteButton(page, app.isDesktop(), 'Sage Nomad')
+    await expect(button).toHaveAttribute('aria-pressed', 'true')
 
-    await app.mocks((mocks) => {
-      localStorage.setItem('kurio:mock-scenario', 'default')
-      return mocks.getScenario()
+    await button.evaluate((element) => {
+      element.dataset.pressedHistory = ''
+      new MutationObserver(() => {
+        element.dataset.pressedHistory += `${element.getAttribute('aria-pressed')},`
+      }).observe(element, { attributes: true, attributeFilter: ['aria-pressed'] })
     })
     await button.click()
-    await expect(button).toHaveAttribute('aria-pressed', 'true')
+    await expect(button).toHaveAttribute('data-pressed-history', 'false,true,')
+    await expect(page.getByRole('alert').filter({ hasText: 'Não foi possível salvar o favorito' })).toBeAttached()
+
+    await app.mocks(() => localStorage.setItem('kurio:mock-scenario', 'default'))
+    await button.click()
+    await expect(button).toHaveAttribute('aria-pressed', 'false')
   })
+
 })

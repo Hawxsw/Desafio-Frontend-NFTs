@@ -2,7 +2,7 @@
 
 Implementação do desafio frontend do marketplace de NFTs em React + TypeScript. Todos os dados (API REST, autenticação, carteiras, pagamentos e eventos em tempo real) são simulados com **MSW** na camada de rede; não há backend, blockchain nem gateway real.
 
-- Deploy: _adicionar a URL pública da Vercel após publicar_
+- Deploy: https://desafio-frontend-nft-s.vercel.app
 - Decisões de arquitetura, contratos e desvios do Figma: [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ## Stack
@@ -137,12 +137,12 @@ Mediana da última execução (Lighthouse 13.5.0, HeadlessChrome 156, Node 24.13
 
 | Página | Perfil | Performance | Accessibility | Best Practices | SEO | LCP (ms) | CLS | TBT (ms) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| início | mobile | 90 | 97 | 100 | 83 | 3212 | 0.001 | 137 |
-| início | desktop | 99 | 97 | 100 | 83 | 746 | 0.002 | 6 |
-| detalhe | mobile | 92 | 96 | 100 | 83 | 3136 | 0.000 | 64 |
-| detalhe | desktop | 90 | 96 | 100 | 83 | 825 | 0.200 | 0 |
+| início | mobile | 90 | 97 | 100 | 100 | 3201 | 0.001 | 140 |
+| início | desktop | 99 | 97 | 100 | 100 | 805 | 0.002 | 5 |
+| detalhe | mobile | 91 | 96 | 100 | 100 | 3184 | 0.000 | 108 |
+| detalhe | desktop | 90 | 96 | 100 | 100 | 851 | 0.200 | 0 |
 
-Performance, Accessibility e Best Practices atingem as metas. SEO fica em 83 (meta 90) porque o `index.html` não tem `<meta name="description">` e não há `robots.txt` (a rota cai no `index.html` da SPA). As análises de LCP no mobile e de CLS no detalhe desktop estão abaixo.
+Todas as categorias atingem as metas. Pontos de atenção:
 
 - **LCP mobile (~3,2 s)**: as imagens do hero/NFT são PNG de ~2 MB (assets originais), e o MSW registra o service worker antes do primeiro render.
 - **CLS 0,2 no detalhe desktop**: o skeleton original do detalhe é mais baixo que o conteúdo final, e o rodapé desce quando os dados chegam.

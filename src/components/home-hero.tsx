@@ -19,13 +19,13 @@ export function HomeHero() {
   return (
     <section aria-labelledby="hero-title" className="pt-4 md:pt-8">
       <Container>
-        <div className="relative flex items-center gap-2 overflow-hidden rounded-2xl bg-surface-dark px-2 pt-4 pb-8 md:h-[450px] md:justify-between md:gap-0 md:overflow-visible md:rounded-none md:bg-transparent md:py-0 md:pr-0 md:pl-10">
-          <div className="flex min-w-0 flex-1 flex-col md:w-[600px] md:flex-none">
+        <div className="relative flex items-center gap-2 overflow-hidden rounded-2xl bg-surface-dark px-2 pt-4 pb-8 md:justify-between md:gap-6 xl:h-[450px] xl:gap-0 md:overflow-visible md:rounded-none md:bg-transparent md:py-0 md:pr-0 md:pl-10">
+          <div className="flex min-w-0 flex-1 flex-col xl:w-[600px] xl:flex-none">
             <div className="flex flex-col gap-8">
               <div className="flex flex-col gap-1">
                 <div className="flex flex-col gap-2">
                   <p className="text-sm leading-4 font-medium tracking-[0.1em] text-text-primary">Bem-vindo à Kurio</p>
-                  <h1 id="hero-title" className="text-lg leading-[29px] font-bold uppercase md:text-display md:leading-[70px]">
+                  <h1 id="hero-title" className="text-lg leading-[29px] font-bold uppercase md:text-[32px] md:leading-[48px] xl:text-display xl:leading-[70px]">
                     <span className="md:hidden">Seja dono da cultura digital</span>
                     <span className="hidden md:inline">
                       Seja dono do futuro
@@ -35,7 +35,7 @@ export function HomeHero() {
                   </h1>
                 </div>
 
-                <p className="text-sm leading-[18px] text-text-secondary md:w-[557px] md:leading-6">
+                <p className="text-sm leading-[18px] text-text-secondary md:leading-6 xl:w-[557px]">
                   <span className="md:hidden">Descubra NFTs selecionados de criadores do mundo todo.</span>
                   <span className="hidden md:inline">
                     Descubra NFTs selecionados de criadores emergentes e consagrados. Colecione arte digital rara,
@@ -73,7 +73,7 @@ export function HomeHero() {
               width={450}
               height={450}
               fetchPriority="high"
-              className="h-[146px] w-[138px] rounded-2xl object-cover md:size-[450px] md:rounded-[24px]"
+              className="h-[146px] w-[138px] rounded-2xl object-cover md:size-[300px] md:rounded-[24px] xl:size-[450px]"
             />
             <img
               src={next.image}

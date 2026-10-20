@@ -161,14 +161,13 @@ Os elementos que já existiam seguem o Figma sem alteração. Os itens abaixo **
 - **Avatar**: os botões "Alterar" e "Remover", que eram placeholders, agora funcionam com o mesmo visual.
 - No checkout mobile (sem formulário no Figma), os dados do colecionador vêm do perfil e aparecem na revisão.
 
-Pontos conhecidos:
+Ajustes de responsividade e pontos conhecidos:
 
-- **Hero da home entre 768 px e 1279 px**: a partir de `md` o hero usa as medidas do desktop (texto de 600 px + imagem de 450 px) e causa overflow horizontal no tablet. O teste `a11y.spec.ts › sem overflow horizontal em 768px` falha por isso. A correção muda a composição do hero no tablet e aguarda aprovação de design.
+- **Hero da home entre 768 px e 1279 px**: não há frame de tablet. Nessa faixa o título e a imagem do hero são reduzidos (32 px e 300 px) e a altura acompanha o conteúdo, para não haver overflow horizontal. A partir de 1280 px valem as medidas do Figma (43 px e 450 px).
 - **Skeletons**: mantêm o efeito pulsante e as medidas originais do projeto, em vez de *shimmer*. O carrinho e o checkout mantêm o texto de carregamento original.
 
 ## Performance
 
-- **SEO 83 (meta 90)**: o `index.html` não tem `<meta name="description">` e não há `robots.txt`; a rota cai no `index.html` da SPA e o Lighthouse o considera inválido.
 
 - **LCP mobile (~3,2 s)**: a imagem do hero/NFT é PNG de ~2 MB (assets originais do Figma). Além disso, o MSW precisa registrar o service worker antes do primeiro render, porque a aplicação só é importada depois dos mocks. A conversão das imagens para WebP/AVIF redimensionado reduziria o LCP, mas é uma substituição de asset que não foi feita.
 - **CLS 0,2 no detalhe desktop**: o skeleton original do detalhe é mais baixo que o conteúdo final, e o rodapé desce quando os dados chegam. Ajustar as medidas do skeleton remove o deslocamento; ficou como está para preservar o componente original.
